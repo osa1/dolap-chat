@@ -1,0 +1,31 @@
+body, html {
+  height: 100%;
+  background-color: #2C2C2C;
+  overflow: hidden;
+}
+
+div {
+}
+
+div#info {
+  position: fixed;
+  right: 100px;
+  top: 100px;
+  border-color: white;
+  border-width: 5px;
+}
+
+div.terminal {
+  height: 85%;
+  padding-bottom: 100px;
+}
+
+#overlays div {
+  color: #666;
+  position: fixed;
+  padding: 5px;
+  border: 1px solid #666;
+  z-index: 1;
+  background: black;
+  border-radius: 5px;
+}
