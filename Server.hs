@@ -21,7 +21,8 @@ import Parser
 import qualified Text.Parsec as P
 
 import qualified IO as IO
---import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafePerformIO)
+
 
 
 type Client = (Text, WS.Sink WS.Hybi00)
@@ -93,7 +94,8 @@ runCmd client@(nick, sink) cmd cindex =
       let chantext = T.pack chan
       case Map.lookup chantext chanlist of
         Nothing -> WS.sendSink sink $ WS.textData ("no such channel" :: T.Text)
-        Just c  -> broadcastExcept (T.pack msg) nick (snd c)
+        Just c  -> broadcastExcept (T.pack msg') nick (snd c)
+                     where msg' = concat ["msg ", (T.unpack nick), " ", chan, " ", msg]
 
     (LeaveCmd chan)   -> undefined
 
@@ -127,17 +129,8 @@ login state sink = do
                   liftIO $ WS.sendSink sink $ WS.textData ("choose another nick" :: T.Text)
                   login state sink
 
-        --liftIO $ modifyMVar_ state $ \s -> do
-        --    let n  = T.pack nick
-        --        s' = case Map.lookup n s of
-        --                Nothing -> (addClient (n, sink) s, True)
-        --                Just _  -> (s, False)
-        --    if (snd s')
-        --      then liftIO $ WS.sendSink sink $ WS.textData ("yoooo" :: T.Text)
-        --      else liftIO $ WS.sendSink sink $ WS.textData ("nop" :: T.Text)
-
-        --    return $ fst s'
-    otherwise -> do liftIO $ WS.sendSink sink $ WS.textData ("nop" :: T.Text)
+    otherwise -> do liftIO $ putStrLn (T.unpack msg)
+                    liftIO $ WS.sendSink sink $ WS.textData ("nop" :: T.Text)
                     login state sink
 
 application :: MVar ServerState -> MVar ChannelIndex -> WS.Request -> WS.WebSockets WS.Hybi00 ()
@@ -159,11 +152,15 @@ talk state chans client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
     --    (nick `mappend` msg)
     talk state chans client
 
-  where catchDisconnect = undefined
-  --where catchDisconnect e = case fromException e of
-  --        Just WS.ConnectionClosed -> do
-  --            liftIO $ modifyMVar_ state $ \s -> do
-  --              return $ removeClient client s
-  --            broadcast ("disconnect" `mappend` nick) (liftIO $ readMVar state)
+  --where catchDisconnect = undefined
+  --WS.WebSockets p ()
+  where --catchDisconnect :: WS.Protocol p => GHC.Exception.SomeException -> WS.WebSockets p ()
+        catchDisconnect e = case fromException e of
+          Just WS.ConnectionClosed -> do
+              state' <- liftIO $ readMVar state
+              liftIO $ modifyMVar_ state $ \s -> do
+                return $ removeClient client s
+              liftIO $ broadcast ("disconnect " `mappend` nick) state'
+              return ()
 
 
