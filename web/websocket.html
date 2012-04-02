@@ -10,6 +10,7 @@
   <link href="bootstrap/css/bootstrap-responsive.css" rel="stylesheet"/>
   <link href="bootstrap/css/bootstrap.css" rel="stylesheet"/>
   <script src="bootstrap/js/bootstrap.js"></script>
+  <script src="bootstrap-plugins/bootstrap-modal.js"></script>
   <link href="css/custom.css" rel="stylesheet"/>
 </head>
 <body id="terminals">
@@ -21,12 +22,29 @@
     <div id="info"></div>
   </div>
 
+
+  <div class="modal hide fade" id="loginModal">
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>Login</h3>
+    </div>
+    <div class="modal-body">
+      <form class="well">
+        <input type="text" class="span3" placeholder="Nick" id="nick-input">
+        <input type="password" class="span3" placeholder="Password">
+        <p id="login-text"></p>
+        <a class="btn btn-primary" id="loginBtn">Submit</a>
+        <!-- <button type="submit" class="btn btn-primary" id="loginBtn">Submit</button> -->
+      </form>
+    </div>
+  </div>
+
 </body>
 
 <script type="text/javascript">
 var socket = new WebSocket("ws://0.0.0.0:3000/");
 
-socket.onopen = function() {
+socket.onopen = function () {
 
 };
 
@@ -61,31 +79,13 @@ socket.onmessage = function (evt) {
   }
 };
 
-socket.onclose = function() {
-  // console.log("connection is closed");
-  input_div.append("<p>connection is closed</p>");
+socket.onclose = function (e) {
+  console.log("close: " + e.code + " " + e.reason);
 };
 
-socket.onerror = function () {
-  input_div.append("<p>error</p>");
+socket.onerror = function (e) {
+  console.log("error: " + e.code);
 };
-
-var send_btn = $("#send-btn");
-var textfield = $("#textfield");
-
-textfield.keydown(function (event) {
-  if (event.which == 13 && event.shiftKey) {
-    send();
-  }
-});
-
-send_btn.click(send);
-
-function send() {
-  socket.send(textfield.val());
-  textfield.val("");
-}
-
 
 // utils ---------------------------------
 
@@ -100,7 +100,7 @@ function first_param (text) {
     rest = t.slice(split+1);
   }
   return {'first': first,
-          'rest': rest};
+  'rest': rest};
 }
 
 function get_params (text, n) {
@@ -112,15 +112,14 @@ function get_params (text, n) {
     rest = parts.rest;
   }
   return {'params': params,
-          'rest': rest};
+  'rest': rest};
 }
 
-</script>
 
-<script type="text/javascript">
+
 
 var terminals = [];
-var nick = "osa1";
+var nick;
 var current_terminal;
 var users = [];
 
@@ -128,13 +127,13 @@ function add_terminal (name) {
   $("#terminals").append('<div id="' + name + '"></div>');
   jQuery(function ($, undefined) {
     $('#' + name).terminal(function (command, term) {
-      if (command !== '') {
-        var result = window.eval("(" + command + ")");
-        if (result !== undefined) {
-          term.echo(String(result));
-        }
+
+      if (command[0] === "/") {
+        socket.send(command.slice(1));
+        console.log("CMD SENT: " + command.slice(1));
       } else {
-        term.echo('');
+        socket.send("msg " + name + " " + command);
+        console.log("SENT: msg " + name + " " + command);
       }
     },
     { greetings: 'Channel: ' + name,
@@ -208,12 +207,20 @@ function update_user_info_div (users) {
   }
 }
 
-add_terminal('dt');
-// switch_terminal('dt');
-// because of a bug when running switch_terminal('dt'):
-  $("#dt_tab").attr("class", "active");
-  current_terminal = "dt";
-  $("#dt").data('channel').add_user(nick);
+$(document).ready(function () {
+  $("#loginModal").modal('show');
+  $("#loginBtn").click(function () {
+    console.log("login");
+    $("#login-text").html("Logging in..");
+    socket.send("login " + $("#nick-input").val());
+    nick = $("#nick-input").val();
+    socket.send("join oda");
+    $("#login-text").html("");
+    $("#loginModal").modal('hide');
+    add_terminal('oda');
+    switch_terminal('oda');
+  });
+});
 
 </script>
 
