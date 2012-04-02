@@ -61,6 +61,35 @@ function send() {
   textfield.val("");
 }
 
+
+// utils ---------------------------------
+
+function first_param (text) {
+  var t = jQuery.trim(text);
+  var split = t.indexOf(" ");
+  var first, rest;
+  if (split === -1) {
+    first = text;
+  } else {
+    first = t.slice(0, split);
+    rest = t.slice(split+1);
+  }
+  return {'first': first,
+          'rest': rest};
+}
+
+function get_params (text, n) {
+  var params = [];
+  var rest = text;
+  for (var i = 0; i < n; i++) {
+    var parts = first_param(rest);
+    params.push(parts.first);
+    rest = parts.rest;
+  }
+  return {'params': params,
+          'rest': rest};
+}
+
 </script>
 
 <script type="text/javascript">
