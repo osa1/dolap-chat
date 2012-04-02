@@ -24,47 +24,59 @@ import qualified IO as IO
 --import System.IO.Unsafe (unsafePerformIO)
 
 
-data ClientState = Edit | Normal
+type Client  = (Text, WS.Sink WS.Hybi00)
 
-type Client = (Text, WS.Sink WS.Hybi00)
+type ChannelUsers = (Text, [Client])
+type ChannelState = Map.Map Text ChannelUsers
+--type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
 
-type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
+data ServerState = ServerState { getChannels :: ChannelState
+                               , getUsers    :: Map.Map Text (WS.Sink WS.Hybi00)
+                               }
+
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
 --logHandle = unsafePerformIO $ IO.openFile "/dev/null" IO.WriteMode
 
 newServerState :: ServerState
-newServerState = Map.empty
+newServerState = ServerState Map.empty Map.empty
+
+newChannelState :: ChannelState
+newChannelState = Map.empty
 
 numClients :: ServerState -> Int
-numClients = Map.size
+numClients (ServerState _ users) = Map.size users
 
 clientExists :: Text -> ServerState -> Bool
-clientExists name state =
-    case Map.lookup name state of
+clientExists name (ServerState _ users) =
+    case Map.lookup name users of
         Just _  -> True
         Nothing -> False
 
 addClient :: Client -> ServerState -> ServerState
-addClient (name, sock) = Map.insert name sock
+addClient (name, sock) (ServerState cs users) =
+  ServerState cs (Map.insert name sock users)
 
 removeClient :: Client -> ServerState -> ServerState
-removeClient (name, _) = Map.delete name
+removeClient (name, _) (ServerState cs users) = ServerState cs (Map.delete name users)
 
 broadcast :: Text -> ServerState -> IO ()
-broadcast message clients = do
+broadcast message (ServerState _ clients) = do
     T.putStrLn message
     forM_ (Map.toList clients) $ \(_, sink) -> WS.sendSink sink $ WS.textData message
 
 broadcastExcept :: Text -> Text -> ServerState -> IO ()
-broadcastExcept message client clients = do
+broadcastExcept message client (ServerState _ clients) = do
   T.putStrLn message
   forM_ (filter ((/= client) . fst) (Map.toList clients)) $
     \(_, sink) -> WS.sendSink sink $ WS.textData message
 
 runCmd :: Client -> Cmd -> IO ()
-runCmd = undefined
+runCmd client (JoinCmd chan)    = undefined
+runCmd client (LeaveCmd chan)   = undefined
+runCmd client (MsgCmd chan msg) = undefined
+runCmd client (LoginCmd nick)   = undefined
 
 main :: IO ()
 main = do
@@ -81,17 +93,17 @@ login state sink = do
   case P.parse cmd "" msg of
     Right (LoginCmd nick) -> do
 
-        s <- liftIO $ takeMVar state
+        (ServerState cs s) <- liftIO $ takeMVar state
         let n = T.pack nick
             s' = case Map.lookup n s of
-                    Nothing -> (addClient (n, sink) s, True)
+                    Nothing -> (Map.insert n sink s, True)
                     Just _  -> (s, False)
 
         if (snd s')
-          then do liftIO $ putMVar state (fst s')
+          then do liftIO $ putMVar state $ ServerState cs (fst s')
                   liftIO $ WS.sendSink sink $ WS.textData ("logged in" :: T.Text)
                   return n
-          else do liftIO $ putMVar state (fst s')
+          else do liftIO $ putMVar state $ ServerState cs (fst s')
                   liftIO $ WS.sendSink sink $ WS.textData ("choose another nick" :: T.Text)
                   login state sink
 
