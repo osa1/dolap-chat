@@ -24,18 +24,43 @@
 </body>
 
 <script type="text/javascript">
-var input_div = $("#input");
 var socket = new WebSocket("ws://0.0.0.0:3000/");
 
 socket.onopen = function() {
-  // socket.send("");
-  input_div.append("<p>connection established.</p>");
+
 };
+
 socket.onmessage = function (evt) {
   var msg = evt.data;
-  // console.log(msg);
-  input_div.append("<p>" + msg + "</p>");
+  console.log('MSG: ' + msg);
+  var p1 = first_param(msg);
+  var cmd = p1.first.toLowerCase();
+  if (cmd === 'join') {
+    // join nick chan
+    var join_params = get_params(p1.rest, 2).params;
+    $("#" + join_params[1]).terminal().echo(join_params[0] + " has joined the channel.");
+    $("#" + join_params[1]).data('channel').add_user(join_params[1]);
+  } else if (cmd === 'leave') {
+    // leave nick chan
+    var leave_params = get_params(p1.rest, 2).params;
+    $("#" + leave_params[1]).terminal().echo(leave_params[0] + " has left the channel.");
+    $("#" + leave_params[1]).data('channel').remove_user(join_params[1]);
+  } else if (cmd === 'disconnect') {
+    // disconnect nick
+    var disconnect_params = get_params(p1.rest, 1).params;
+    for (var i = 0; i < terminals.length; i++) {
+      $("#" + terminals[i]).data('channel').remove_user(disconnect_params[0]);
+      $("#" + terminals[i]).terminal().echo(diconnect_params[0] + " has disconnected.");
+    }
+  } else if (cmd === 'msg') {
+    // msg nick chan [msg]
+    var msg_param_parts = get_params(p1.rest, 2);
+    var msg_params = msg_param_parts.params;
+    var msg = msg_param_parts.rest;
+    $("#" + msg_params[1]).terminal().echo(msg_params[0] + "> " + msg);
+  }
 };
+
 socket.onclose = function() {
   // console.log("connection is closed");
   input_div.append("<p>connection is closed</p>");
@@ -43,7 +68,7 @@ socket.onclose = function() {
 
 socket.onerror = function () {
   input_div.append("<p>error</p>");
-}
+};
 
 var send_btn = $("#send-btn");
 var textfield = $("#textfield");
