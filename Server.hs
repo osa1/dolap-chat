@@ -6,6 +6,7 @@ import Control.Exception (fromException)
 import Control.Monad (forM_)
 import Control.Concurrent hiding (newChan)
 import Control.Monad.IO.Class (liftIO)
+import Data.List (intercalate)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Network.WebSockets as WS
@@ -23,13 +24,15 @@ import qualified Text.Parsec as P
 import qualified IO as IO
 import System.IO.Unsafe (unsafePerformIO)
 
+import Debug.Trace (trace)
 
 
-type Client = (Text, WS.Sink WS.Hybi00)
-type ChannelState = (Text, Map.Map Text (WS.Sink WS.Hybi00))
+
+type Client = (Text, WS.Sink WS.Hybi10)
+type ChannelState = (Text, Map.Map Text (WS.Sink WS.Hybi10))
 type ChannelIndex = Map.Map Text ChannelState
 
-type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
+type ServerState = Map.Map Text (WS.Sink WS.Hybi10)
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
@@ -58,18 +61,24 @@ addClient :: Client -> ServerState -> ServerState
 addClient (name, sock) = Map.insert name sock
 
 removeClient :: Client -> ServerState -> ServerState
-removeClient (name, _) = Map.delete name
+removeClient client state
+  | trace ("removeClient " ++ show (fst client)) False = undefined
+removeClient (name, _) a = Map.delete name a
 
 joinUser :: Client -> ChannelState -> ChannelState
 joinUser (nick, sink) (chanName, userIndex) =
   (chanName, Map.insert nick sink userIndex)
 
 broadcast :: Text -> ServerState -> IO ()
+broadcast message clients
+  | trace ("broadcast " ++ show message) False = undefined
 broadcast message clients = do
     T.putStrLn message
     forM_ (Map.toList clients) $ \(_, sink) -> WS.sendSink sink $ WS.textData message
 
 broadcastExcept :: Text -> Text -> ServerState -> IO ()
+broadcastExcept message client clients
+  | trace ("broadcastExcept " ++ show message ++ " " ++ show client) False = undefined
 broadcastExcept message client clients = do
   T.putStrLn message
   forM_ (filter ((/= client) . fst) (Map.toList clients)) $
@@ -87,7 +96,13 @@ runCmd client@(nick, sink) cmd cindex =
         Nothing -> putMVar cindex
                     (Map.insert chantext
                       (joinUser client (newChan chantext)) chanlist)
-        Just c  -> putMVar cindex (Map.insert chantext (joinUser client c) chanlist)
+        Just c  -> do
+          putMVar cindex (Map.insert chantext (joinUser client c) chanlist)
+          liftIO $ broadcastExcept (T.pack $ concat ["join ", (T.unpack nick), " ", chan]) nick (snd c)
+          liftIO $ broadcastExcept userList nick (snd c)
+            where userList = T.pack $ intercalate "," (map T.unpack (Map.keys $ snd c))
+
+
 
     (MsgCmd chan msg) -> do
       chanlist <- readMVar cindex
@@ -109,7 +124,7 @@ main = do
       , Warp.settingsIntercept = WaiWS.intercept (application serverState channelIndex)
       } (Static.staticApp Static.defaultWebAppSettings)
 
-login :: MVar ServerState -> WS.Sink WS.Hybi00 -> WS.WebSockets WS.Hybi00 (Text)
+login :: MVar ServerState -> WS.Sink WS.Hybi10 -> WS.WebSockets WS.Hybi10 (Text)
 login state sink = do
   msg <- WS.receiveData
   case P.parse cmd "" msg of
@@ -133,12 +148,13 @@ login state sink = do
                     liftIO $ WS.sendSink sink $ WS.textData ("nop" :: T.Text)
                     login state sink
 
-application :: MVar ServerState -> MVar ChannelIndex -> WS.Request -> WS.WebSockets WS.Hybi00 ()
+application :: MVar ServerState -> MVar ChannelIndex -> WS.Request -> WS.WebSockets WS.Hybi10 ()
 --application = undefined
 application state chans rq = do
     WS.acceptRequest rq
     sink <- WS.getSink
     nick <- login state sink
+    WS.spawnPingThread 5
     talk state chans (nick, sink)
 
 
@@ -148,13 +164,11 @@ talk state chans client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
     liftIO $ case (P.parse cmd "" msg) of
                Left  err -> WS.sendSink sink $ WS.textData ("err" :: T.Text)
                Right cmd -> runCmd client cmd chans
-    --liftIO $ readMVar state >>= broadcast
-    --    (nick `mappend` msg)
     talk state chans client
 
-  --where catchDisconnect = undefined
   --WS.WebSockets p ()
   where --catchDisconnect :: WS.Protocol p => GHC.Exception.SomeException -> WS.WebSockets p ()
+        catchDisconnect e | trace ("catchDisconnect " ++ show nick) False = undefined
         catchDisconnect e = case fromException e of
           Just WS.ConnectionClosed -> do
               state' <- liftIO $ readMVar state
@@ -162,5 +176,4 @@ talk state chans client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
                 return $ removeClient client s
               liftIO $ broadcast ("disconnect " `mappend` nick) state'
               return ()
-
-
+          otherwise -> do liftIO $ putStrLn "bir hata olustu"
