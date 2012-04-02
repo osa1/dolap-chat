@@ -1,0 +1,176 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <script src="js/jquery-1.7.1.min.js"></script>
+  <script src="js/jquery.terminal-0.4.11.js"></script>
+  <script src="js/jquery.mousewheel.min.js"></script>
+  <link href="css/jquery.terminal.css" rel="stylesheet"/>
+  <link href="bootstrap/css/bootstrap-responsive.css" rel="stylesheet"/>
+  <link href="bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <script src="bootstrap/js/bootstrap.js"></script>
+  <link href="css/custom.css" rel="stylesheet"/>
+</head>
+<body id="terminals">
+
+  <ul class="nav nav-tabs" id="tabs">
+  </ul>
+
+  <div id="overlays">
+    <div id="info"></div>
+  </div>
+
+</body>
+
+
+
+
+
+<script type="text/javascript">
+var socket = new WebSocket("ws://0.0.0.0:3000/");
+
+socket.onopen = function() {
+  // socket.send("");
+  // input_div.append("<p>connection established.</p>");
+};
+
+socket.onmessage = function (evt) {
+  var msg = evt.data.trim();
+  msg_parts = take_params(msg, 1);
+
+  var cmd = msg_parts.params[0].toLowerCase();
+  if (cmd === 'join') {
+
+  } else if (cmd === 'leave') {
+
+  } else if (cmd === 'disconnect') {
+
+  } else if (cmd === 'msg') {
+
+  } else {
+    console.log('unknown cmd: ' + cmd);
+  }
+};
+
+socket.onclose = function() {
+  // console.log("connection is closed");
+  // input_div.append("<p>connection is closed</p>");
+};
+
+socket.onerror = function (data) {
+  console.log("error: " + data);
+}
+
+// utils --------------------------------------
+
+function take_params (text, n) {
+  var r = [];
+  var rest = text;
+  for (var i=0; i < n; i++) {
+    var parts = take_first_param(rest);
+    r.push(parts.first);
+    rest = parts.rest;
+  }
+  return {'params': r,
+          'rest': rest};
+}
+
+function take_first_param (text) {
+  var t = jQuery.trim(text);
+  var split = t.indexOf(" ");
+  if (split === -1) {
+    return {'first': t,
+            'rest': ''};
+  } else {
+    return {'first': t.slice(0, split),
+            'rest': jQuery.trim(t.slice(split))};
+  }
+}
+
+var terminals = [];
+var nick = "osa1";
+var users = [];
+add_user(nick);
+
+function add_terminal (name) {
+  $("#terminals").append('<div id="' + name + '"></div>');
+  jQuery(function ($, undefined) {
+    $('#' + name).terminal(function (command, term) {
+      if (command !== '') {
+        var result = window.eval("(" + command + ")");
+        if (result !== undefined) {
+          term.echo(String(result));
+        }
+      } else {
+        term.echo('');
+      }
+    },
+    { greetings: 'Channel: ' + name,
+      name: name,
+      prompt: nick + '> '});
+  });
+
+  var tab_name = name + "_tab";
+  $("#tabs").append('<li id="' + tab_name + '"><a>' + name + '</a></li>');
+  $("#" + tab_name).click(function () {
+    console.log("switched to terminal " + name);
+    switch_terminal(name);
+  });
+
+  terminals.push(name);
+}
+
+function close_terminal (name) {
+  $("#" + name).remove();
+  $("#" + name + "_tab").remove();
+
+  terminals.splice(terminals.indexOf(name), 1); // wth
+  switch_terminal(terminals[0]);
+}
+
+function switch_terminal (name) {
+  for (idx in terminals) {
+    $("#" + terminals[idx]).hide();
+    $("#" + terminals[idx] + "_tab").removeAttr("class");
+  }
+  $("#" + name).show();
+  $("#" + name + "_tab").attr("class", "active");
+  scroll_bottom(name);
+}
+
+function scroll_bottom (terminal_name) {
+  var t = $("#" + terminal_name).terminal();
+  t.scroll(t.height());
+}
+
+function add_user (nick) {
+  users.push(nick);
+  update_user_info_div();
+}
+
+function remove_user (nick) {
+  users.splice(users.indexOf(nick), 1);
+  update_user_info_div();
+}
+
+function update_user_info_div () {
+  $("#info").html("");
+
+  for (var i=0; i < users.length; i++) {
+    if (i !== 0) {
+      $("#info").append("<br>");
+      console.log("br");
+    }
+    $("#info").append(users[i]);
+  }
+}
+
+add_terminal('dt');
+// switch_terminal('dt');
+// because of a bug when running switch_terminal('dt'):
+$("#dt_tab").attr("class", "active");
+
+</script>
+
+</html>
