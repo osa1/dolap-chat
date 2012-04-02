@@ -67,8 +67,8 @@ function send() {
 
 var terminals = [];
 var nick = "osa1";
+var current_terminal;
 var users = [];
-add_user(nick);
 
 function add_terminal (name) {
   $("#terminals").append('<div id="' + name + '"></div>');
@@ -95,7 +95,26 @@ function add_terminal (name) {
     switch_terminal(name);
   });
 
+  $("#" + name).data('channel', new Channel(name));
+
   terminals.push(name);
+}
+
+function Channel (name) {
+  this.name = name
+  this.users = [];
+
+  this.add_user = function (nick) {
+    this.users.push(nick);
+    if (this.name === current_terminal)
+      update_user_info_div(this.users);
+  };
+
+  this.remove_user = function (nick) {
+    this.users.splice(users.indexOf(nick), 1);
+    if (this.name === current_terminal)
+      update_user_info_div();
+  };
 }
 
 function close_terminal (name) {
@@ -114,6 +133,8 @@ function switch_terminal (name) {
   $("#" + name).show();
   $("#" + name + "_tab").attr("class", "active");
   scroll_bottom(name);
+
+  current_terminal = name;
 }
 
 function scroll_bottom (terminal_name) {
@@ -121,17 +142,7 @@ function scroll_bottom (terminal_name) {
   t.scroll(t.height());
 }
 
-function add_user (nick) {
-  users.push(nick);
-  update_user_info_div();
-}
-
-function remove_user (nick) {
-  users.splice(users.indexOf(nick), 1);
-  update_user_info_div();
-}
-
-function update_user_info_div () {
+function update_user_info_div (users) {
   $("#info").html("");
 
   for (var i=0; i < users.length; i++) {
@@ -146,7 +157,9 @@ function update_user_info_div () {
 add_terminal('dt');
 // switch_terminal('dt');
 // because of a bug when running switch_terminal('dt'):
-$("#dt_tab").attr("class", "active");
+  $("#dt_tab").attr("class", "active");
+  current_terminal = "dt";
+  $("#dt").data('channel').add_user(nick);
 
 </script>
 
