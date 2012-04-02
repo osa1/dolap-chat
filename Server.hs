@@ -4,7 +4,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 import Control.Exception (fromException)
 import Control.Monad (forM_)
-import Control.Concurrent
+import Control.Concurrent hiding (newChan)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -26,10 +26,9 @@ import qualified IO as IO
 
 type Client = (Text, WS.Sink WS.Hybi00)
 type ChannelState = (Text, Map.Map Text (WS.Sink WS.Hybi00))
-type ChannelIndex = [ChannelState]
+type ChannelIndex = Map.Map Text ChannelState
 
 type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
-type Channels = [ChannelState]
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
@@ -39,7 +38,11 @@ newServerState :: ServerState
 newServerState = Map.empty
 
 newChannelIndex :: ChannelIndex
-newChannelIndex = []
+newChannelIndex = Map.empty
+
+newChan :: Text -> ChannelState
+--newChan = flip (,) Map.empty -- lol, this is what I wrote at first
+newChan name = (name, Map.empty)
 
 numClients :: ServerState -> Int
 numClients = Map.size
@@ -56,6 +59,10 @@ addClient (name, sock) = Map.insert name sock
 removeClient :: Client -> ServerState -> ServerState
 removeClient (name, _) = Map.delete name
 
+joinUser :: Client -> ChannelState -> ChannelState
+joinUser (nick, sink) (chanName, userIndex) =
+  (chanName, Map.insert nick sink userIndex)
+
 broadcast :: Text -> ServerState -> IO ()
 broadcast message clients = do
     T.putStrLn message
@@ -68,7 +75,27 @@ broadcastExcept message client clients = do
     \(_, sink) -> WS.sendSink sink $ WS.textData message
 
 runCmd :: Client -> Cmd -> MVar ChannelIndex -> IO ()
-runCmd = undefined
+runCmd client@(nick, sink) cmd cindex =
+  --type ChannelIndex = Map.Map Text ChannelState
+
+  case cmd of
+    (JoinCmd chan) -> do
+      chanlist <- takeMVar cindex
+      let chantext = T.pack chan
+      case Map.lookup chantext chanlist of
+        Nothing -> putMVar cindex
+                    (Map.insert chantext
+                      (joinUser client (newChan chantext)) chanlist)
+        Just c  -> putMVar cindex (Map.insert chantext (joinUser client c) chanlist)
+
+    (MsgCmd chan msg) -> do
+      chanlist <- readMVar cindex
+      let chantext = T.pack chan
+      case Map.lookup chantext chanlist of
+        Nothing -> WS.sendSink sink $ WS.textData ("no such channel" :: T.Text)
+        Just c  -> broadcastExcept (T.pack msg) nick (snd c)
+
+    (LeaveCmd chan)   -> undefined
 
 main :: IO ()
 main = do
