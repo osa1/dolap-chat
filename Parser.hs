@@ -9,63 +9,68 @@ import Control.Applicative ((<*))
 type ChanName = String
 
 data Cmd = LoginCmd String
-         | NewmsgCmd String MsgId
-         | MovCmd Int
-         | RmCmd Int
-         | EndmsgCmd
+         | JoinCmd String
+         | MsgCmd String String
+         | LeaveCmd String
     deriving (Show)
 
-type MsgId = [Int]
 
 cmd :: Parser Cmd
 --cmd = undefined
-cmd = loginCmd <|> newmsgCmd <|> movCmd <|> rmCmd <|> endmsgCmd
+--cmd = msgCmd <|> singleparam
+
+cmd = try msgCmd <|> try leaveCmd <|> try loginCmd <|> try joinCmd
+
+joinCmd :: Parser Cmd
+joinCmd = do
+    string "join"
+    spaces
+    nick <- many1 anyChar
+    eof
+    return $ JoinCmd nick
+
+leaveCmd :: Parser Cmd
+leaveCmd = do
+    string "leave"
+    spaces
+    nick <- many1 anyChar
+    eof
+    return $ LeaveCmd nick
+
+loginCmd :: Parser Cmd
+loginCmd = do
+    string "login"
+    spaces
+    nick <- many1 anyChar
+    eof
+    return $ LoginCmd nick
 
 chanName :: Parser ChanName
 chanName = many1 (letter <|> oneOf "-" <|> digit) -- <* eof
 
-loginCmd :: Parser Cmd
-loginCmd = do
-    cmd <- string "login"
-    spaces
-    nick <- many1 alphaNum
-    eof
-    return $ LoginCmd nick
+--singleparam :: Parser Cmd
+--singleparam = do
+--    cmd <- choice [try $ string "leave", try $ string "login", try $ string "join"]
+--    spaces
+--    nick <- many1 anyChar
+--    eof
+--    --return $ LoginCmd nick
+--    return $ case nick of
+--               _ | cmd == "login" -> LoginCmd nick
+--                 | cmd == "leave" -> LeaveCmd nick
+--                 | cmd == "join"  ->  JoinCmd nick
 
-msgId :: Parser MsgId
-msgId = do
-    ids <- (many1 digit) `sepBy` (char '-')
-    return (map (\i -> read i :: Int) ids)
 
-newmsgCmd :: Parser Cmd
+msgCmd :: Parser Cmd
 --newmsgcmd = undefined
-newmsgCmd = do
-    string "newmsg"
+msgCmd = do
+    string "msg"
     spaces
     chan <- chanName
     spaces
-    msgId <- msgId
+    msg <- many1 anyChar
     eof
-    return $ NewmsgCmd chan msgId
-
-movCmd :: Parser Cmd
-movCmd = do
-    string "mov"
-    spaces
-    pos <- (many1 digit)
-    return $ MovCmd (read pos :: Int)
-
-rmCmd :: Parser Cmd
-rmCmd = do
-    string "rm"
-    spaces
-    a <- (many1 digit)
-    return $ RmCmd (read a :: Int)
-
-endmsgCmd :: Parser Cmd
-endmsgCmd = do
-    string "endmsg"
-    return EndmsgCmd
+    return $ MsgCmd chan msg
 
 
 
