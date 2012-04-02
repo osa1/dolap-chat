@@ -24,67 +24,60 @@ import qualified IO as IO
 --import System.IO.Unsafe (unsafePerformIO)
 
 
-type Client  = (Text, WS.Sink WS.Hybi00)
+type Client = (Text, WS.Sink WS.Hybi00)
+type ChannelState = (Text, Map.Map Text (WS.Sink WS.Hybi00))
+type ChannelIndex = [ChannelState]
 
-type ChannelUsers = (Text, [Client])
-type ChannelState = Map.Map Text ChannelUsers
---type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
-
-data ServerState = ServerState { getChannels :: ChannelState
-                               , getUsers    :: Map.Map Text (WS.Sink WS.Hybi00)
-                               }
-
+type ServerState = Map.Map Text (WS.Sink WS.Hybi00)
+type Channels = [ChannelState]
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
 --logHandle = unsafePerformIO $ IO.openFile "/dev/null" IO.WriteMode
 
 newServerState :: ServerState
-newServerState = ServerState Map.empty Map.empty
+newServerState = Map.empty
 
-newChannelState :: ChannelState
-newChannelState = Map.empty
+newChannelIndex :: ChannelIndex
+newChannelIndex = []
 
 numClients :: ServerState -> Int
-numClients (ServerState _ users) = Map.size users
+numClients = Map.size
 
 clientExists :: Text -> ServerState -> Bool
-clientExists name (ServerState _ users) =
-    case Map.lookup name users of
+clientExists name state =
+    case Map.lookup name state of
         Just _  -> True
         Nothing -> False
 
 addClient :: Client -> ServerState -> ServerState
-addClient (name, sock) (ServerState cs users) =
-  ServerState cs (Map.insert name sock users)
+addClient (name, sock) = Map.insert name sock
 
 removeClient :: Client -> ServerState -> ServerState
-removeClient (name, _) (ServerState cs users) = ServerState cs (Map.delete name users)
+removeClient (name, _) = Map.delete name
 
 broadcast :: Text -> ServerState -> IO ()
-broadcast message (ServerState _ clients) = do
+broadcast message clients = do
     T.putStrLn message
     forM_ (Map.toList clients) $ \(_, sink) -> WS.sendSink sink $ WS.textData message
 
 broadcastExcept :: Text -> Text -> ServerState -> IO ()
-broadcastExcept message client (ServerState _ clients) = do
+broadcastExcept message client clients = do
   T.putStrLn message
   forM_ (filter ((/= client) . fst) (Map.toList clients)) $
     \(_, sink) -> WS.sendSink sink $ WS.textData message
 
-runCmd :: Client -> Cmd -> IO ()
-runCmd client (JoinCmd chan)    = undefined
-runCmd client (LeaveCmd chan)   = undefined
-runCmd client (MsgCmd chan msg) = undefined
-runCmd client (LoginCmd nick)   = undefined
+runCmd :: Client -> Cmd -> MVar ChannelIndex -> IO ()
+runCmd = undefined
 
 main :: IO ()
 main = do
-    state <- newMVar newServerState
+    serverState  <- newMVar newServerState
+    channelIndex <- newMVar newChannelIndex
     Warp.runSettings Warp.defaultSettings
       { Warp.settingsPort = 3000
       , Warp.settingsHost = Warp.Host "0.0.0.0"
-      , Warp.settingsIntercept = WaiWS.intercept (application state)
+      , Warp.settingsIntercept = WaiWS.intercept (application serverState channelIndex)
       } (Static.staticApp Static.defaultWebAppSettings)
 
 login :: MVar ServerState -> WS.Sink WS.Hybi00 -> WS.WebSockets WS.Hybi00 (Text)
@@ -93,17 +86,17 @@ login state sink = do
   case P.parse cmd "" msg of
     Right (LoginCmd nick) -> do
 
-        (ServerState cs s) <- liftIO $ takeMVar state
+        s <- liftIO $ takeMVar state
         let n = T.pack nick
             s' = case Map.lookup n s of
-                    Nothing -> (Map.insert n sink s, True)
+                    Nothing -> (addClient (n, sink) s, True)
                     Just _  -> (s, False)
 
         if (snd s')
-          then do liftIO $ putMVar state $ ServerState cs (fst s')
+          then do liftIO $ putMVar state (fst s')
                   liftIO $ WS.sendSink sink $ WS.textData ("logged in" :: T.Text)
                   return n
-          else do liftIO $ putMVar state $ ServerState cs (fst s')
+          else do liftIO $ putMVar state (fst s')
                   liftIO $ WS.sendSink sink $ WS.textData ("choose another nick" :: T.Text)
                   login state sink
 
@@ -120,21 +113,24 @@ login state sink = do
     otherwise -> do liftIO $ WS.sendSink sink $ WS.textData ("nop" :: T.Text)
                     login state sink
 
-application :: MVar ServerState -> WS.Request -> WS.WebSockets WS.Hybi00 ()
+application :: MVar ServerState -> MVar ChannelIndex -> WS.Request -> WS.WebSockets WS.Hybi00 ()
 --application = undefined
-application state rq = do
+application state chans rq = do
     WS.acceptRequest rq
     sink <- WS.getSink
     nick <- login state sink
-    talk state (nick, sink)
+    talk state chans (nick, sink)
 
 
-talk :: WS.Protocol p => MVar ServerState -> Client -> WS.WebSockets p ()
-talk state client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
+talk :: WS.Protocol p => MVar ServerState -> MVar ChannelIndex -> Client -> WS.WebSockets p ()
+talk state chans client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
     msg <- WS.receiveData
-    liftIO $ readMVar state >>= broadcast
-        (nick `mappend` msg)
-    talk state client
+    liftIO $ case (P.parse cmd "" msg) of
+               Left  err -> WS.sendSink sink $ WS.textData ("err" :: T.Text)
+               Right cmd -> runCmd client cmd chans
+    --liftIO $ readMVar state >>= broadcast
+    --    (nick `mappend` msg)
+    talk state chans client
 
   where catchDisconnect = undefined
   --where catchDisconnect e = case fromException e of
@@ -142,11 +138,5 @@ talk state client@(nick, sink) = flip WS.catchWsError catchDisconnect $ do
   --            liftIO $ modifyMVar_ state $ \s -> do
   --              return $ removeClient client s
   --            broadcast ("disconnect" `mappend` nick) (liftIO $ readMVar state)
-
-
-
-
-
-
 
 
