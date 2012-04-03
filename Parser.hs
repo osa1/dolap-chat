@@ -41,7 +41,7 @@ loginCmd :: Parser Cmd
 loginCmd = do
     string "login"
     spaces
-    nick <- many1 anyChar
+    nick <- many1 alphaNum
     eof
     return $ LoginCmd nick
 
