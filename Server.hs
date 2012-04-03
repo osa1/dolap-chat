@@ -114,7 +114,17 @@ runCmd client@(nick, sink) cmd cindex =
         Just c  -> broadcastExcept (T.pack msg') nick (snd c)
                      where  msg' = concat ["msg ", (T.unpack nick), " ", chan, " ", msg]
 
-    (LeaveCmd chan)   -> undefined
+    (LeaveCmd chan) -> do
+      chanlist <- takeMVar cindex
+      let chantext = T.pack chan
+      case Map.lookup chantext chanlist of
+        Nothing -> putMVar cindex chanlist
+        Just (cn, c) -> do
+          let newchan = Map.delete nick c
+          -- type ChannelState = (Text, Map.Map Text (WS.Sink WS.Hybi10))
+          -- type ChannelIndex = Map.Map Text ChannelState
+          liftIO $ putMVar cindex (Map.insert chantext (chantext, newchan) chanlist)
+          liftIO $ broadcast (T.pack $ concat ["leave ", T.unpack nick, " ", chan]) newchan
 
 main :: IO ()
 main = do
