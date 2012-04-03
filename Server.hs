@@ -84,6 +84,12 @@ broadcastExcept message client clients = do
   forM_ (filter ((/= client) . fst) (Map.toList clients)) $
     \(_, sink) -> WS.sendSink sink $ WS.textData message
 
+sendUserlist :: Client -> ChannelState -> IO ()
+sendUserlist client@(nick, sink) cs@(cn, chanmap) =
+  let msg = T.pack $ "users " ++ T.unpack cn ++ " " ++
+              intercalate "," (map T.unpack (Map.keys $ chanmap))
+  in liftIO $ WS.sendSink sink $ WS.textData msg
+
 runCmd :: Client -> Cmd -> MVar ChannelIndex -> IO ()
 runCmd client@(nick, sink) cmd cindex =
   --type ChannelIndex = Map.Map Text ChannelState
@@ -93,16 +99,12 @@ runCmd client@(nick, sink) cmd cindex =
       chanlist <- takeMVar cindex
       let chantext = T.pack chan
       case Map.lookup chantext chanlist of
-        Nothing -> putMVar cindex
-                    (Map.insert chantext
-                      (joinUser client (newChan chantext)) chanlist)
+        Nothing -> do
+          let cindex' = Map.insert chantext (joinUser client (newChan chantext)) chanlist
+          putMVar cindex cindex'
         Just c  -> do
           putMVar cindex (Map.insert chantext (joinUser client c) chanlist)
-          liftIO $ broadcastExcept (T.pack $ concat ["join ", (T.unpack nick), " ", chan]) nick (snd c)
-          liftIO $ broadcastExcept userList nick (snd c)
-            where userList = T.pack $ intercalate "," (map T.unpack (Map.keys $ snd c))
-
-
+          liftIO $ broadcast (T.pack $ concat ["join ", (T.unpack nick), " ", chan]) (snd c)
 
     (MsgCmd chan msg) -> do
       chanlist <- readMVar cindex
@@ -110,7 +112,7 @@ runCmd client@(nick, sink) cmd cindex =
       case Map.lookup chantext chanlist of
         Nothing -> WS.sendSink sink $ WS.textData ("no such channel" :: T.Text)
         Just c  -> broadcastExcept (T.pack msg') nick (snd c)
-                     where msg' = concat ["msg ", (T.unpack nick), " ", chan, " ", msg]
+                     where  msg' = concat ["msg ", (T.unpack nick), " ", chan, " ", msg]
 
     (LeaveCmd chan)   -> undefined
 
@@ -120,7 +122,7 @@ main = do
     channelIndex <- newMVar newChannelIndex
     Warp.runSettings Warp.defaultSettings
       { Warp.settingsPort = 3000
-      , Warp.settingsHost = Warp.Host "0.0.0.0"
+      , Warp.settingsHost = "0.0.0.0"
       , Warp.settingsIntercept = WaiWS.intercept (application serverState channelIndex)
       } (Static.staticApp Static.defaultWebAppSettings)
 
