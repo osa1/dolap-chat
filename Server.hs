@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 --import Data.Text (Text)
---import Control.Exception (fromException)
---import Control.Monad (forM_)
+import Control.Exception (fromException)
+import Control.Monad (forM_)
 import Control.Concurrent hiding (newChan, Chan)
 import Control.Monad.IO.Class (liftIO)
 --import Data.List (intercalate)
@@ -34,6 +34,9 @@ tryLogin server nick sock =
   case Map.lookup nick server of
     Just _  -> Nothing
     Nothing -> Just $ Map.insert nick sock server
+
+removeClient :: ServerS -> Client -> ServerS
+removeClient server (Client nick _) = Map.delete nick server
 
 main :: IO ()
 main = do
@@ -75,7 +78,34 @@ application serverS chanS rq = do
   WS.spawnPingThread 5
   talk client serverS chanS
 
-talk = undefined
+talk :: Client -> MVar ServerS -> MVar ChanS -> WS.WebSockets WS.Hybi10 ()
+talk client@(Client nick sink) serverS chanS = flip WS.catchWsError catchDisconnect $ do
+    msg <- WS.receiveData
+    liftIO $ case (P.parse cmd "" msg) of
+               Left  err -> WS.sendSink sink $ WS.textData (Msg.unknownCommand (show err))
+               Right cmd -> runCmd client cmd chanS
+    talk client serverS chanS
+      where catchDisconnect e = case fromException e of
+              Just WS.ConnectionClosed -> do
+                liftIO $ modifyMVar_ chanS $ \s -> do -- s :: Map.Map T.Text Chan
+                  forM_ (Map.toList s) (\(cn, (Chan clients)) ->
+                    case Map.lookup nick clients of
+                      Nothing -> return ()
+                      Just _  ->
+                        sendClientsMap clients (Msg.leftChannelCmd (T.unpack nick) (T.unpack cn)))
+
+                  let s' = Map.map (flip removeFromChan client) s
+                  return s'
+
+                liftIO $ modifyMVar_ serverS $ \s -> do
+                  let s' = removeClient s client
+                  return s'
+
+              _ -> return ()
+
+
+runCmd :: Client -> Cmd -> MVar ChanS -> IO ()
+runCmd = undefined
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
