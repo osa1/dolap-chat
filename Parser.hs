@@ -1,10 +1,9 @@
+{-# OPTIONS -fno-warn-unused-do-bind #-}
 module Parser where
 
 --import Text.ParserCombinators.Parsec
 import Text.Parsec.Text
 import Text.Parsec
-
-import Control.Applicative ((<*))
 
 type ChanName = String
 
@@ -46,7 +45,7 @@ loginCmd = do
     return $ LoginCmd nick
 
 chanName :: Parser ChanName
-chanName = many1 (letter <|> oneOf "-" <|> digit) -- <* eof
+chanName = many1 (letter <|> oneOf "-" <|> digit)
 
 --singleparam :: Parser Cmd
 --singleparam = do
