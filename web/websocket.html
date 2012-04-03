@@ -15,9 +15,6 @@
 </head>
 <body id="terminals">
 
-  <ul class="nav nav-tabs" id="tabs">
-  </ul>
-
   <div id="overlays">
     <div id="info"></div>
   </div>
@@ -44,20 +41,31 @@
 <script type="text/javascript">
 var socket = new WebSocket("ws://0.0.0.0:3000/");
 
+function send (msg) {
+  // for debugging purposes
+  console.log("SENT MSG: " + msg);
+  socket.send(msg);
+}
+
 socket.onopen = function () {
 
 };
 
 socket.onmessage = function (evt) {
   var msg = evt.data;
-  console.log('MSG: ' + msg);
+  console.log('GOT MSG: ' + msg);
   var p1 = first_param(msg);
   var cmd = p1.first.toLowerCase();
   if (cmd === 'join') {
     // join nick chan
     var join_params = get_params(p1.rest, 2).params;
+    var chan_data = $("#" + join_params[1]).data('channel');
     $("#" + join_params[1]).terminal().echo(join_params[0] + " has joined the channel.");
-    $("#" + join_params[1]).data('channel').add_user(join_params[1]);
+    chan_data.add_user(join_params[1]);
+    if (join_params[1] === current_terminal) {
+      chan_data.users.push(join_params[0]);
+      update_user_info_div(chan_data.users);
+    }
   } else if (cmd === 'leave') {
     // leave nick chan
     var leave_params = get_params(p1.rest, 2).params;
@@ -76,6 +84,17 @@ socket.onmessage = function (evt) {
     var msg_params = msg_param_parts.params;
     var msg = msg_param_parts.rest;
     $("#" + msg_params[1]).terminal().echo(msg_params[0] + "> " + msg);
+  } else if (cmd === 'users') {
+    var parts = get_params(p1.rest, 1);
+    var chan = parts.params[0];
+    var users = parts.rest.split(",");
+    var chan_data = $("#" + chan).data('channel');
+
+    chan_data.users = users;
+    if (current_terminal === chan) {
+      // chan_data.users.push(nick);
+      update_user_info_div(chan_data.users);
+    }
   }
 };
 
@@ -100,7 +119,7 @@ function first_param (text) {
     rest = t.slice(split+1);
   }
   return {'first': first,
-  'rest': rest};
+          'rest': rest};
 }
 
 function get_params (text, n) {
@@ -112,16 +131,15 @@ function get_params (text, n) {
     rest = parts.rest;
   }
   return {'params': params,
-  'rest': rest};
+          'rest': rest};
 }
 
-
+// --------------------------------------
 
 
 var terminals = [];
 var nick;
 var current_terminal;
-var users = [];
 
 function add_terminal (name) {
   $("#terminals").append('<div id="' + name + '"></div>');
@@ -129,11 +147,9 @@ function add_terminal (name) {
     $('#' + name).terminal(function (command, term) {
 
       if (command[0] === "/") {
-        socket.send(command.slice(1));
-        console.log("CMD SENT: " + command.slice(1));
+        send(command.slice(1));
       } else {
-        socket.send("msg " + name + " " + command);
-        console.log("SENT: msg " + name + " " + command);
+        send("msg " + name + " " + command);
       }
     },
     { greetings: 'Channel: ' + name,
@@ -144,7 +160,6 @@ function add_terminal (name) {
   var tab_name = name + "_tab";
   $("#tabs").append('<li id="' + tab_name + '"><a>' + name + '</a></li>');
   $("#" + tab_name).click(function () {
-    console.log("switched to terminal " + name);
     switch_terminal(name);
   });
 
@@ -166,7 +181,7 @@ function Channel (name) {
   this.remove_user = function (nick) {
     this.users.splice(users.indexOf(nick), 1);
     if (this.name === current_terminal)
-      update_user_info_div();
+      update_user_info_div(this.users);
   };
 }
 
@@ -201,7 +216,6 @@ function update_user_info_div (users) {
   for (var i=0; i < users.length; i++) {
     if (i !== 0) {
       $("#info").append("<br>");
-      console.log("br");
     }
     $("#info").append(users[i]);
   }
@@ -210,15 +224,19 @@ function update_user_info_div (users) {
 $(document).ready(function () {
   $("#loginModal").modal('show');
   $("#loginBtn").click(function () {
-    console.log("login");
     $("#login-text").html("Logging in..");
-    socket.send("login " + $("#nick-input").val());
+    send("login " + $("#nick-input").val());
     nick = $("#nick-input").val();
-    socket.send("join oda");
+
+    setTimeout(function () {
+      send("join oda");
+    }, 2000);
+
     $("#login-text").html("");
     $("#loginModal").modal('hide');
     add_terminal('oda');
     switch_terminal('oda');
+    $("#tabs").append('');
   });
 });
 
