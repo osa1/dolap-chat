@@ -118,7 +118,14 @@ runCmd cl@(Client nick sink) cmd chanS = do
           Just ec -> do broadcastChan ec (Msg.joinChannelCmd nick chanName)
                         return $ Map.insert chanName (addToChan ec cl) s
 
-    (MsgCmd chan msg) -> undefined
+    (MsgCmd chan msg) -> do
+      let chanName = (T.pack chan)
+          msgT = (T.pack msg)
+      chanS <- readMVar chanS
+      case Map.lookup chanName chanS of
+        Nothing -> sendClient cl (Msg.unknownChan chanName)
+        Just c -> broadcastChan c (Msg.msgCmd nick chanName msgT)
+
     (LeaveCmd chan) -> undefined
 
 logHandle :: IO.Handle
