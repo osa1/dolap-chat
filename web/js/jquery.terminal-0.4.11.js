@@ -1138,7 +1138,7 @@ function get_stack(caller) {
                         if (history && command) {
                             history.append(command);
                         }
-                        console.log(command);
+                        // console.log(command);
                         history.last();
                         var tmp = command;
                         self.set('');
