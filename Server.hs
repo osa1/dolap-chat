@@ -28,7 +28,6 @@ import Parser
 import qualified Msg as Msg
 
 type ServerS  = Map.Map T.Text (WS.Sink WS.Hybi10)
-type ChanS    = Map.Map T.Text Chan
 
 tryLogin :: ServerS -> T.Text -> WS.Sink WS.Hybi10 -> Maybe ServerS
 tryLogin server nick sock =
@@ -111,6 +110,7 @@ runCmd :: Client -> Cmd -> MVar ChanS -> IO ()
 runCmd cl@(Client nick sink) cmd chanS = do
   case cmd of
     (JoinCmd cn) -> do
+      --putStrLn "joincmd"
       let chanName = T.pack cn
       liftIO $ modifyMVar_ chanS $ \s -> do
         case Map.lookup chanName s of
@@ -119,6 +119,7 @@ runCmd cl@(Client nick sink) cmd chanS = do
                         return $ Map.insert chanName (addToChan ec cl) s
 
     (MsgCmd chan msg) -> do
+      --putStrLn "msgcmd"
       let chanName = (T.pack chan)
           msgT = (T.pack msg)
       chanS <- readMVar chanS
@@ -126,7 +127,13 @@ runCmd cl@(Client nick sink) cmd chanS = do
         Nothing -> sendClient cl (Msg.unknownChan chanName)
         Just c -> broadcastChan c (Msg.msgCmd nick chanName msgT)
 
-    (LeaveCmd chan) -> undefined
+    (LeaveCmd chan) -> do
+      chans <- takeMVar chanS
+      case Map.lookup (T.pack chan) chans of
+        Nothing -> putMVar chanS chans
+        Just c -> do
+          putMVar chanS (Map.map (flip removeFromChan cl) chans)
+          broadcastChan c (Msg.leftChannelCmd nick (T.pack chan))
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
