@@ -43,5 +43,8 @@ removeFromChans nick chans =
   flip Map.map chans $ \(Chan clients) ->
     Chan $ Map.delete nick clients
 
+userList :: Chan -> [T.Text]
+userList (Chan clients) = Map.keys clients
+
 --removeUser :: [Chan] -> T.Text -> IO ([Chan])
 --removeUser = undefined

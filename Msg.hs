@@ -27,3 +27,7 @@ leftChannelCmd nick channel =
 joinChannelCmd :: T.Text -> T.Text -> T.Text
 joinChannelCmd nick channel =
     "join " `mappend` nick `mappend` " " `mappend` channel
+
+usersCmd :: T.Text -> [T.Text] -> T.Text
+usersCmd name users =
+    "users " `mappend` name `mappend` " " `mappend` T.intercalate "," users
