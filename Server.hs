@@ -44,7 +44,7 @@ main = do
   chanS    <- newMVar newChanS
   Warp.runSettings Warp.defaultSettings
     { Warp.settingsPort = 3000
-    , Warp.settingsHost = "0.0.0.0"
+    --, Warp.settingsHost = "*"
     , Warp.settingsIntercept = WaiWS.intercept (application serverS chanS)
     } (Static.staticApp Static.defaultWebAppSettings)
 
@@ -71,8 +71,10 @@ application :: MVar ServerS -> MVar ChanS -> WS.Request -> WS.WebSockets WS.Hybi
 application serverS chanS rq = do
   WS.acceptRequest rq
   sink <- WS.getSink
-  nick <- login serverS sink
+  liftIO $ putStrLn "incoming connection"
 
+  -- TODO: exception handling in login and ping threads
+  nick <- login serverS sink
   let client = Client nick sink
 
   WS.spawnPingThread 5
@@ -89,11 +91,11 @@ talk client@(Client nick sink) serverS chanS = flip WS.catchWsError catchDisconn
               Just WS.ConnectionClosed -> do
                 -- remove user from channels and send "leave" msgs
                 liftIO $ modifyMVar_ chanS $ \s -> do -- s :: Map.Map T.Text Chan
-                  forM_ (Map.toList s) (\(cn, (Chan clients)) ->
+                  forM_ (Map.toList s) $ \(cn, (Chan clients)) ->
                     case Map.lookup nick clients of
                       Nothing -> return ()
                       Just _  ->
-                        sendClientsMap clients (Msg.leftChannelCmd nick cn))
+                        sendClientsMap clients (Msg.leftChannelCmd nick cn)
 
                   let s' = Map.map (flip removeFromChan client) s
                   return s'
