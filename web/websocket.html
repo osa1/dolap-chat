@@ -106,10 +106,12 @@ function handle_msg (msg) {
     var user = parser.getNextToken();
     var chan = parser.getNextToken();
     $("#" + chan).data('channel').add_user(user);
+    $("#" + chan).terminal().echo(user + " has joined the channel.");
   } else if (cmd === 'leave') {
     var user = parser.getNextToken();
     var chan = parser.getNextToken();
     $("#" + chan).data('channel').remove_user(user);
+    $("#" + chan).terminal().echo(user + " has left the channel.");
   } else if (cmd === 'users') {
     var chan = parser.getNextToken();
     var users = parser.getRest().split(',');
@@ -134,7 +136,6 @@ function add_terminal (name) {
   $("#terminals").append('<div id="' + name + '"></div>');
   jQuery(function ($, undefined) {
     $('#' + name).terminal(function (command, term) {
-
       if (command[0] === "/") {
         send(command.slice(1));
       } else {
@@ -212,29 +213,29 @@ function update_user_info_div (users) {
 }
 
 $(document).ready(function () {
-  // $("#loginModal").modal('show');
-  // $("#loginBtn").click(function () {
-  //   $("#login-text").html("Logging in..");
-  //   send("login " + $("#nick-input").val());
-  //   nick = $("#nick-input").val();
+  $("#loginModal").modal('show');
+  $("#loginBtn").click(function () {
+    $("#login-text").html("Logging in..");
+    send("login " + $("#nick-input").val());
+    nick = $("#nick-input").val();
 
-  //   setTimeout(function () {
-  //     send("join oda");
-  //   }, 2000);
+    setTimeout(function () {
+      send("join oda");
+    }, 2000);
 
-  //   $("#login-text").html("");
-  //   $("#loginModal").modal('hide');
-  //   add_terminal('oda');
-  //   switch_terminal('oda');
-  //   $("#tabs").append('');
-  // });
-
-    nick = "osa1";
-
+    $("#login-text").html("");
+    $("#loginModal").modal('hide');
     add_terminal('oda');
-    current_terminal = 'oda';
-    // switch_terminal('oda');
+    switch_terminal('oda');
     $("#tabs").append('');
+  });
+
+    // nick = "osa1";
+
+    // add_terminal('oda');
+    // current_terminal = 'oda';
+    // // switch_terminal('oda');
+    // $("#tabs").append('');
 
 });
 </script>

@@ -1,14 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
---import Data.Text (Text)
 import Control.Exception (fromException)
 import Control.Monad (forM_)
 import Control.Concurrent hiding (newChan, Chan)
 import Control.Monad.IO.Class (liftIO)
 import qualified IO as IO
 
---import Data.List (intercalate)
 import qualified Data.Text as T
---import qualified Data.Text.IO as T
 import qualified Data.Map as Map
 
 import qualified Network.WebSockets as WS
@@ -17,10 +14,6 @@ import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.Wai.Application.Static as Static
 
 import qualified Text.Parsec as P
-
---import System.IO.Unsafe (unsafePerformIO)
-
---import Debug.Trace (trace)
 
 import Channel
 import Client
@@ -116,8 +109,10 @@ runCmd cl@(Client nick sink) cmd chanS = do
       let chanName = T.pack cn
       liftIO $ modifyMVar_ chanS $ \s -> do
         case Map.lookup chanName s of
-          Nothing -> return $ Map.insert chanName (addToChan newChan cl) s
+          Nothing -> do sendClient cl (Msg.usersCmd chanName [nick])
+                        return $ Map.insert chanName (addToChan newChan cl) s
           Just ec -> do broadcastChan ec (Msg.joinChannelCmd nick chanName)
+                        sendClient cl (Msg.usersCmd chanName (userList ec ++ [nick]))
                         return $ Map.insert chanName (addToChan ec cl) s
 
     (MsgCmd chan msg) -> do
