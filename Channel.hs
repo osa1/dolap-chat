@@ -10,6 +10,7 @@ import qualified Network.WebSockets as WS
 import Client
 
 data Chan = Chan { getClients :: Map.Map T.Text (WS.Sink WS.Hybi10) }
+type ChanS    = Map.Map T.Text Chan
 
 newChan :: Chan
 newChan = Chan Map.empty
@@ -29,6 +30,18 @@ broadcastChan (Chan clients) text =
 chanClientList :: Chan -> [Client]
 chanClientList (Chan clients) =
   map (\(nick, sink) -> Client nick sink) $ Map.toList clients
+
+broadcastJoinedChans :: T.Text -> ChanS -> T.Text -> IO ()
+broadcastJoinedChans nick chans msg = do
+  forM_ (Map.toList chans) $ \(_, c@(Chan clients)) ->
+    case Map.lookup nick clients of
+      Nothing -> return ()
+      Just _  -> broadcastChan c msg
+
+removeFromChans :: T.Text -> ChanS -> ChanS
+removeFromChans nick chans =
+  flip Map.map chans $ \(Chan clients) ->
+    Chan $ Map.delete nick clients
 
 --removeUser :: [Chan] -> T.Text -> IO ([Chan])
 --removeUser = undefined
