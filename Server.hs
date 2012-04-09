@@ -70,8 +70,11 @@ application serverS chanS rq = do
   nick <- login serverS sink
   let client = Client nick sink
 
-  WS.spawnPingThread 5
+  flip WS.catchWsError catchPingTErr $ WS.spawnPingThread 5
   talk client serverS chanS
+
+catchPingTErr e = do
+  liftIO $ putStrLn "error on ping thread"
 
 talk :: Client -> MVar ServerS -> MVar ChanS -> WS.WebSockets WS.Hybi10 ()
 talk client@(Client nick sink) serverS chanS = flip WS.catchWsError catchDisconnect $ do
@@ -104,6 +107,7 @@ talk client@(Client nick sink) serverS chanS = flip WS.catchWsError catchDisconn
 runCmd :: Client -> Cmd -> MVar ChanS -> IO ()
 runCmd cl@(Client nick sink) cmd chanS = do
   case cmd of
+
     (JoinCmd cn) -> do
       --putStrLn "joincmd"
       let chanName = T.pack cn
