@@ -18,7 +18,7 @@
  </ul>
 
   <div id="overlays">
-    <div id="info"></div>
+    <div id="info" style="top: 100px; left: 700px"></div>
   </div>
 
 
@@ -41,7 +41,7 @@
 </body>
 
 <script type="text/javascript">
-var socket = new WebSocket("ws://78.189.172.153:3000/");
+var socket = new WebSocket("ws://0.0.0.0:3000/");
 
 function send (msg) {
   // for debugging purposes
@@ -237,6 +237,26 @@ $(document).ready(function () {
     // // switch_terminal('oda');
     // $("#tabs").append('');
 
+
+    var drag_overlay = false;
+    var drag_rel_x, drag_rel_y;
+
+    $("#info").mousedown(function (e) {
+      drag_overlay = true;
+      drag_rel_x = e.clientX - $("#info").css("left").replace("px", "");
+      drag_rel_y = e.clientY - $("#info").css("top").replace("px", "");
+    });
+
+    $("body").mouseup(function (e) {
+      drag_overlay = false;
+    });
+
+    $("#info").mousemove(function (e) {
+      if (drag_overlay) {
+        $("#info").css("left", (e.clientX - drag_rel_x) + "px");
+        $("#info").css("top", (e.clientY - drag_rel_y) + "px");
+      }
+    });
 });
 </script>
 
