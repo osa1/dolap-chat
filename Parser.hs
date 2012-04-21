@@ -32,9 +32,9 @@ leaveCmd :: Parser Cmd
 leaveCmd = do
     string "leave"
     spaces
-    nick <- many1 anyChar
+    chan <- many1 anyChar
     eof
-    return $ LeaveCmd nick
+    return $ LeaveCmd chan
 
 loginCmd :: Parser Cmd
 loginCmd = do
