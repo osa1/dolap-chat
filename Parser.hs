@@ -4,6 +4,8 @@ module Parser where
 --import Text.ParserCombinators.Parsec
 import Text.Parsec.Text
 import Text.Parsec
+import Control.Applicative ((<*))
+import Control.Monad (liftM)
 
 type ChanName = String
 
@@ -11,6 +13,7 @@ data Cmd = LoginCmd String
          | JoinCmd String
          | MsgCmd String String
          | LeaveCmd String
+         | HelpCmd
     deriving (Show)
 
 
@@ -18,7 +21,7 @@ cmd :: Parser Cmd
 --cmd = undefined
 --cmd = msgCmd <|> singleparam
 
-cmd = try msgCmd <|> try leaveCmd <|> try loginCmd <|> try joinCmd
+cmd = try msgCmd <|> try leaveCmd <|> try loginCmd <|> try joinCmd <|> helpCmd
 
 joinCmd :: Parser Cmd
 joinCmd = do
@@ -44,8 +47,12 @@ loginCmd = do
     eof
     return $ LoginCmd nick
 
+helpCmd :: Parser Cmd
+helpCmd = string "help" >> eof >> return HelpCmd
+
 chanName :: Parser ChanName
 chanName = many1 (letter <|> oneOf "-" <|> digit)
+
 
 --singleparam :: Parser Cmd
 --singleparam = do

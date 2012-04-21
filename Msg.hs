@@ -23,6 +23,9 @@ msgCmd :: T.Text -> T.Text -> T.Text -> T.Text
 msgCmd client chan msg =
     "msg " `mappend` (T.intercalate " " [client, chan, msg])
 
+helpMsg :: T.Text
+helpMsg = "TODO: help text"
+
 leftChannelCmd :: T.Text -> T.Text -> T.Text
 leftChannelCmd nick channel =
     "leave " `mappend` nick `mappend` " " `mappend` channel

@@ -142,6 +142,9 @@ runCmd cl@(Client nick sink) cmd chanS = do
     (LoginCmd s) -> do
       sendClient cl (Msg.unknownCommand $ "login " ++ s)
 
+    (HelpCmd) -> do
+      sendClient cl Msg.helpMsg
+
 logHandle :: IO.Handle
 logHandle = IO.stdout
 --logHandle = unsafePerformIO $ IO.openFile "/dev/null" IO.WriteMode
