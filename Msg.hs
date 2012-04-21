@@ -5,10 +5,13 @@ import Data.Monoid (mappend)
 import qualified Data.Text as T
 
 nickInUse :: T.Text
-nickInUse = "Nick is in use."
+nickInUse = "login nickinuse"
 
 loginFirst :: T.Text
-loginFirst = "You should login first."
+loginFirst = "login loginfirst"
+
+loginOk :: T.Text
+loginOk = "login ok"
 
 unknownCommand :: String -> T.Text
 unknownCommand = T.pack . (++) "Unknown command: "
