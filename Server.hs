@@ -15,6 +15,8 @@ import qualified Network.Wai.Application.Static as Static
 
 import qualified Text.Parsec as P
 
+--import Data.Time.Clock (getCurrentTime)
+
 import Channel
 import Client
 import Parser
@@ -54,6 +56,7 @@ login serverS sink = do
                            login serverS sink
                          Just server' -> do
                            liftIO $ putMVar serverS server'
+                           liftIO $ WS.sendSink sink $ WS.textData Msg.loginOk
                            return (T.pack nick)
     _ -> do liftIO $ putMVar serverS server
             liftIO $ WS.sendSink sink $ WS.textData Msg.loginFirst
@@ -135,6 +138,9 @@ runCmd cl@(Client nick sink) cmd chanS = do
         Just c -> do
           putMVar chanS (Map.map (flip removeFromChan cl) chans)
           broadcastChan c (Msg.leftChannelCmd nick (T.pack chan))
+
+    (LoginCmd s) -> do
+      sendClient cl (Msg.unknownCommand $ "login " ++ s)
 
 logHandle :: IO.Handle
 logHandle = IO.stdout
