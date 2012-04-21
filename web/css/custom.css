@@ -11,8 +11,8 @@ div#info {
   position: fixed;
 /*  right: 100px;
   top: 100px;
-*/  border-color: white;
-  border-width: 5px;
+*/
+  box-shadow: 0 0 10px 0px #cccc99;
 }
 
 div.terminal {
@@ -24,7 +24,7 @@ div.terminal {
   color: #666;
   position: fixed;
   padding: 5px;
-  border: 1px solid #666;
+  border: 1px solid #000000;
   z-index: 1;
   background: black;
   border-radius: 5px;
@@ -34,7 +34,7 @@ div.terminal {
   color: #666;
   position: fixed;
   padding: 5px;
-  border: 1px solid #666;
+  /*border: 1px solid #666;*/
   z-index: 1;
   background: black;
   border-radius: 5px;

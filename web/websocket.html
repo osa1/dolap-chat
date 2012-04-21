@@ -203,6 +203,7 @@ function scroll_bottom (terminal_name) {
 
 function update_user_info_div (users) {
   $("#info").html("");
+  $("#info").append("<h2>Users</h2>");
 
   for (var i=0; i < users.length; i++) {
     if (i !== 0) {
@@ -238,6 +239,28 @@ $(document).ready(function () {
     // $("#tabs").append('');
 
 
+  // (function($) {
+
+  // $.fn.disableSelection = function() {
+  //     return this.each(function() {
+  //         $(this).attr('unselectable', 'on')
+  //                .css({
+  //                    '-moz-user-select':'none',
+  //                    '-webkit-user-select':'none',
+  //                    'user-select':'none',
+  //                    '-ms-user-select':'none'
+  //                })
+  //                .each(function() {
+  //                    this.onselectstart = function() { return false; };
+  //                });
+  //     });
+  // };
+
+  // })(jQuery);
+
+  // $("#info").disableSelection();
+
+    // dragging info panel ----------------------
     var drag_overlay = false;
     var drag_rel_x, drag_rel_y;
 
@@ -257,6 +280,8 @@ $(document).ready(function () {
         $("#info").css("top", (e.clientY - drag_rel_y) + "px");
       }
     });
+    // ------------------------------------------
+
 });
 </script>
 
