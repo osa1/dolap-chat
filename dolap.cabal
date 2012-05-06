@@ -1,0 +1,27 @@
+Name:              dolap
+Version:           0.1
+Synopsis:          Simple websocket chat server
+Description:       Dolap is a simple websocket chat server I built for
+                   mostly learning purposes.
+
+License:           MIT
+License-file:      LICENSE
+
+Author:            Ömer Sinan Ağacan
+Maintainer:        Ömer Sinan Ağacan <omeragacan@gmail.com>
+Copyright:         (c) 2012 Ömer Sinan Ağacan
+
+Build-type:        Simple
+Cabal-version:     >=1.6
+Stability:         alpha
+
+Executable Server
+  Main-is:         Server.hs
+  Hs-Source-Dirs:  src
+  Build-depends:   base >= 4.2 && < 5, text == 0.11.1.5, parsec == 3.1.2,
+                   websockets == 0.6.0.2, containers == 0.4.0.0, wai-app-static == 1.2.0.1,
+                   wai-websockets == 1.2.0.1, warp == 1.2.0.1,
+                   haskell98 == 1.1.0.1, transformers == 0.2.2.0
+
+
+
